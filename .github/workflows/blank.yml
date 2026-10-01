@@ -1,0 +1,48 @@
+name: Build Thunderbird Package for GhostBSD/FreeBSD
+
+on:
+  workflow_dispatch: # Allows you to trigger the build manually from the Actions tab
+
+jobs:
+  build-pkg:
+    runs-size: large # Recommended: Thunderbird compilation requires heavy computing resources
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Boot FreeBSD Environment and Build Package
+      uses: cross-platform-actions/action@v0.26.0
+      with:
+        operating_system: freebsd
+        version: '14.1' # Matches GhostBSD's current underlying stable base branch
+        run: |
+          echo "Updating core package repository..."
+          sudo pkg update -f
+          
+          echo "Installing Git to pull Ports tree..."
+          sudo pkg install -y git
+          
+          echo "Cloning FreeBSD Ports Tree..."
+          sudo git clone --depth 1 https://github.com /usr/ports
+          
+          echo "Installing all build and runtime dependencies via binary packages..."
+          cd /usr/ports/mail/thunderbird
+          sudo pkg install -y $(make missing)
+          
+          echo "Compiling Thunderbird and packaging into a standalone .pkg bundle..."
+          # Bypasses the interactive configuration menu using default options
+          sudo make BATCH=yes package
+          
+          echo "Staging the completed package file for upload..."
+          mkdir -p $HOME/output-pkg
+          cp /usr/ports/public/packages/All/thunderbird-*.pkg $HOME/output-pkg/
+
+    - name: Upload Thunderbird Package Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: thunderbird-ghostbsd-package
+        path: ~/output-pkg/thunderbird-*.pkg
+        retention-days: 7
+        
