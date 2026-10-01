@@ -12,42 +12,43 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Boot FreeBSD Environment and Build Package
-      # Upgraded from v0.26.0 to v0.32.0 to resolve image 404 download errors on newer OS versions
       uses: cross-platform-actions/action@v0.32.0
       with:
         operating_system: freebsd
-        version: '15.0' # Aligns with the modern stable upstream GhostBSD branch
-        memory: '7G'     # Allocates max RAM space on standard runners for heavy compilation
+        version: '15.0' # Aligns natively with modern GhostBSD bases
+        memory: '7G'     # Maximizes RAM constraints for compiler tasks
         cpu_count: 2
         run: |
-          # Bypasses local repository configuration alerts automatically
+          # Avoid interactive package mismatches entirely
           export IGNORE_OSVERSION=yes
           
           echo "Updating core package repository..."
           sudo -E pkg update -f
           
-          echo "Installing Git to pull Ports tree..."
+          echo "Installing Git to handle ports..."
           sudo -E pkg install -y git
           
-          echo "Cloning FreeBSD Ports Tree..."
-          sudo git clone --depth 1 https://github.com /usr/ports
+          echo "Cloning Official FreeBSD Ports Tree..."
+          # Changed from GitHub mirror to official, highly reliable upstream repo
+          sudo git clone --depth 1 https://git.freebsd.org/ports.git /usr/ports
           
-          echo "Installing all build and runtime dependencies via binary packages..."
+          echo "Gathering and installing all build and runtime dependencies..."
           cd /usr/ports/mail/thunderbird
-          sudo -E pkg install -y $(make missing)
           
-          echo "Compiling Thunderbird and packaging into a standalone .pkg bundle..."
-          # BATCH=yes bypasses prompt configurations to keep the job entirely unattended
+          # Wrapped in strict bash execution style to block GitHub Actions text truncation
+          sudo sh -c 'pkg install -y $(make missing)'
+          
+          echo "Compiling Thunderbird and generating standalone package..."
           sudo -E make BATCH=yes package
           
-          echo "Staging the completed package file for upload..."
-          mkdir -p $HOME/output-pkg
-          cp /usr/ports/public/packages/All/thunderbird-*.pkg $HOME/output-pkg/
+          echo "Staging file artifacts..."
+          mkdir -p ../output-pkg
+          cp /usr/ports/public/packages/All/thunderbird-*.pkg ../output-pkg/
 
     - name: Upload Thunderbird Package Artifact
       uses: actions/upload-artifact@v4
       with:
         name: thunderbird-ghostbsd-package
-        path: ~/output-pkg/thunderbird-*.pkg
+        path: ../output-pkg/thunderbird-*.pkg
         retention-days: 7
         
