@@ -5,7 +5,6 @@ on:
 
 jobs:
   build-pkg:
-    runs-size: large # Recommended: Thunderbird compilation requires heavy computing resources
     runs-on: ubuntu-latest
 
     steps:
